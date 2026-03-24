@@ -1,8 +1,8 @@
-# ParkEase Deployment Guide (Native PHP on Render)
+# ParkEase Deployment Guide - Railway
 
 ## Prerequisites
 - GitHub Account
-- Render Account (sign up at render.com)
+- Railway Account (sign up at railway.app)
 
 ---
 
@@ -20,65 +20,67 @@ git push -u origin main
 
 ---
 
-## Step 2: Deploy on Render (Native PHP - No Docker)
+## Step 2: Deploy on Railway
 
-### 2.1 Create PostgreSQL Database
-1. Go to [render.com](https://render.com) → Dashboard
-2. Click **New** → **PostgreSQL**
-3. Configure:
-   - **Name**: `parkease-db`
-   - **Database Name**: `parkease`
-   - **User**: `parkease`
-4. Click **Create Database**
-5. Wait for status to be "Available", then copy the **Internal Database URL**
+### 2.1 Create Railway Project
+1. Go to [railway.app](https://railway.app) → Login
+2. Click **New Project**
+3. Select **Deploy from GitHub repo**
+4. Connect your GitHub repository
 
-### 2.2 Create Web Service
-1. Click **New** → **Web Service**
-2. Connect your GitHub repository
-3. Configure:
-   - **Name**: `parkease`
-   - **Environment**: `PHP`
-   - **Build Command**: `composer install --no-dev --optimize-autoloader --no-interaction`
-   - **Start Command**: `php artisan serve --host=0.0.0.0 --port=$PORT`
-4. Click **Create Web Service**
+### 2.2 Add PostgreSQL Database
+1. In Railway dashboard, click **New** → **Database** → **PostgreSQL**
+2. Wait for it to provision
+3. Copy the **PostgreSQL Connection URL**
 
 ### 2.3 Configure Environment Variables
-In your web service dashboard, go to **Environment** tab and add:
-
+1. Click on your project → **Variables** tab
+2. Add these variables:
 ```
 APP_NAME=ParkEase
 APP_ENV=production
 APP_DEBUG=false
-APP_URL=https://your-app-name.onrender.com
+APP_KEY=  # Will generate later
+APP_URL=https://your-app-name.up.railway.app
 
+# Use the PostgreSQL connection URL and parse it
 DB_CONNECTION=pgsql
-DB_HOST=your-postgres-host.render.com
+DB_HOST=your-postgres-host
 DB_PORT=5432
-DB_DATABASE=parkease
-DB_USERNAME=parkease
-DB_PASSWORD=your-postgres-password
+DB_DATABASE=railway
+DB_USERNAME=postgres
+DB_PASSWORD=your-password
 
 SESSION_DRIVER=database
 QUEUE_CONNECTION=database
 CACHE_STORE=database
 ```
 
-**Important**: Replace the DB_* values with your PostgreSQL credentials from step 2.1.
+**To parse the PostgreSQL URL** (format: `postgres://user:pass@host:port/database`):
+- Host: after @ to before :
+- Port: after : to next /
+- Database: after / to end
+- Username: after postgres:// to :
+- Password: between : and @
 
-### 2.4 Run Migrations
-1. In your web service dashboard, click **Shell**
+### 2.4 Deploy
+1. Click **Deploy** on the Railway dashboard
+2. Wait for deployment to complete
+
+### 2.5 Run Migrations
+1. In Railway dashboard, click your service → **Shell**
 2. Run:
 ```bash
 php artisan migrate --force
 ```
 
-### 2.5 Generate App Key
+### 2.6 Generate App Key
 In the same shell:
 ```bash
 php artisan key:generate
 ```
 
-### 2.6 Build Frontend
+### 2.7 Build Frontend
 ```bash
 npm install
 npm run build
@@ -88,7 +90,7 @@ npm run build
 
 ## Step 3: Access Your App
 
-After deployment completes, visit `https://your-app-name.onrender.com`
+Visit `https://your-app-name.up.railway.app`
 
 ---
 
@@ -109,20 +111,8 @@ git push origin main
 
 ---
 
-## Troubleshooting
-
-### "No application key"
-Run: `php artisan key:generate`
-
-### Database connection error
-Check DB_* environment variables are correct
-
-### Assets not loading
-Run: `npm run build`
-
----
-
 ## Notes
-- **Free Tier**: Services sleep after 15 min of inactivity. First request may take ~30 seconds
-- **SSL**: Provided automatically by Render
-- **Database**: Free PostgreSQL stays active
+- **Free Tier**: $5 credit/month (enough for small apps)
+- **Sleep**: No sleep on paid tiers, sleep on free tier after inactivity
+- **SSL**: Provided automatically
+- **Database**: PostgreSQL stays active
