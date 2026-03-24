@@ -1,19 +1,21 @@
-FROM php:8.2-cli
+FROM php:8.2-apache
 
 RUN apt-get update && apt-get install -y \
     git curl zip unzip libzip-dev libpng-dev libonig-dev libxml2-dev \
-    && docker-php-ext-install pdo pdo_mysql mbstring zip exif pcntl bcmath
+    && docker-php-ext-install pdo pdo_mysql mbstring zip exif pcntl bcmath \
+    && a2enmod rewrite
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-WORKDIR /app
+WORKDIR /var/www/html
 COPY . .
 
-RUN composer install --no-dev --optimize-autoloader
+RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-RUN php artisan config:cache || true
-RUN php artisan route:cache || true
+COPY .docker/apache.conf /etc/apache2/sites-available/000-default.conf
 
-EXPOSE 8000
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-CMD php artisan serve --host=0.0.0.0 --port=$PORT
+EXPOSE 80
+
+CMD ["apache2-foreground"]
