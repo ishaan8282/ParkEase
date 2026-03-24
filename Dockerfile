@@ -1,17 +1,9 @@
 FROM php:8.2-apache
 
-# Install dependencies + fast PHP extension installer
+# Install dependencies with faster approach
 RUN apt-get update && apt-get install -y \
     git curl zip unzip libzip-dev libpng-dev libonig-dev libxml2-dev \
-    && curl -sSL https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions -o /usr/local/bin/install-php-extensions \
-    && chmod +x /usr/local/bin/install-php-extensions \
-    && install-php-extensions \
-        pdo_mysql \
-        mbstring \
-        zip \
-        exif \
-        pcntl \
-        bcmath \
+    && docker-php-ext-install -j$(nproc) pdo pdo_mysql pdo_pgsql mbstring zip exif pcntl bcmath \
     && a2enmod rewrite \
     && rm -rf /var/lib/apt/lists/*
 
