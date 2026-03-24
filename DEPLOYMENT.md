@@ -1,4 +1,4 @@
-# ParkEase Deployment Guide
+# ParkEase Deployment Guide (Native PHP on Render)
 
 ## Prerequisites
 - GitHub Account
@@ -8,58 +8,42 @@
 
 ## Step 1: Push to GitHub
 
-### 1.1 Initialize Git (if not already done)
 ```bash
 cd /var/www/html/ParkEase2/parkease
 git init
 git add .
 git commit -m "Initial commit - ParkEase Parking App"
-```
-
-### 1.2 Create GitHub Repository
-1. Go to [github.com](https://github.com)
-2. Click "+" → "New repository"
-3. Name it `ParkEase` or `parking-app`
-4. Don't initialize with README (we have files)
-5. Click "Create repository"
-
-### 1.3 Push to GitHub
-```bash
-# Add your GitHub repo as remote (replace with your actual repo URL)
 git remote add origin https://github.com/YOUR_USERNAME/ParkEase.git
-
-# Push to GitHub
 git branch -M main
 git push -u origin main
 ```
 
 ---
 
-## Step 2: Deploy to Render
+## Step 2: Deploy on Render (Native PHP - No Docker)
 
-### 2.1 Create Database on Render
-1. Log in to [render.com](https://render.com)
-2. Click "New" → "PostgreSQL"
+### 2.1 Create PostgreSQL Database
+1. Go to [render.com](https://render.com) → Dashboard
+2. Click **New** → **PostgreSQL**
 3. Configure:
    - **Name**: `parkease-db`
    - **Database Name**: `parkease`
    - **User**: `parkease`
-4. Click "Create Database"
-5. Wait for it to provision, then copy:
-   - **Internal Database URL** (you'll need this)
+4. Click **Create Database**
+5. Wait for status to be "Available", then copy the **Internal Database URL**
 
-### 2.2 Deploy Web Service
-1. Click "New" → "Web Service"
+### 2.2 Create Web Service
+1. Click **New** → **Web Service**
 2. Connect your GitHub repository
 3. Configure:
    - **Name**: `parkease`
    - **Environment**: `PHP`
-   - **Build Command**: `composer install --no-dev --optimize-autoloader`
+   - **Build Command**: `composer install --no-dev --optimize-autoloader --no-interaction`
    - **Start Command**: `php artisan serve --host=0.0.0.0 --port=$PORT`
-4. Click "Create Web Service"
+4. Click **Create Web Service**
 
 ### 2.3 Configure Environment Variables
-In Render dashboard, go to your web service's "Environment" tab and add:
+In your web service dashboard, go to **Environment** tab and add:
 
 ```
 APP_NAME=ParkEase
@@ -68,37 +52,33 @@ APP_DEBUG=false
 APP_URL=https://your-app-name.onrender.com
 
 DB_CONNECTION=pgsql
-DB_HOST=<your-postgres-host>
+DB_HOST=your-postgres-host.render.com
 DB_PORT=5432
-DB_DATABASE=<your-database-name>
-DB_USERNAME=<your-database-user>
-DB_PASSWORD=<your-database-password>
+DB_DATABASE=parkease
+DB_USERNAME=parkease
+DB_PASSWORD=your-postgres-password
 
 SESSION_DRIVER=database
 QUEUE_CONNECTION=database
 CACHE_STORE=database
 ```
 
+**Important**: Replace the DB_* values with your PostgreSQL credentials from step 2.1.
+
 ### 2.4 Run Migrations
-1. In Render dashboard, go to your web service
-2. Click "Shell" to open a terminal
-3. Run:
+1. In your web service dashboard, click **Shell**
+2. Run:
 ```bash
 php artisan migrate --force
 ```
 
----
-
-## Step 3: Generate Application Key
-In Render shell:
+### 2.5 Generate App Key
+In the same shell:
 ```bash
 php artisan key:generate
 ```
 
----
-
-## Step 4: Build Frontend Assets
-In Render shell:
+### 2.6 Build Frontend
 ```bash
 npm install
 npm run build
@@ -106,29 +86,20 @@ npm run build
 
 ---
 
-## Common Issues
+## Step 3: Access Your App
 
-### "No application key configured"
-Run: `php artisan key:generate`
-
-### Database connection errors
-Check that DB_* variables match your PostgreSQL credentials exactly.
-
-### Static assets not loading
-Make sure `npm run build` completed successfully and your `APP_URL` is correct.
+After deployment completes, visit `https://your-app-name.onrender.com`
 
 ---
 
-## Quick Commands Reference
+## Quick Commands
 
 ```bash
-# Local development
+# Local setup
 composer install
 cp .env.example .env
 php artisan key:generate
 php artisan migrate
-npm install
-npm run dev
 
 # Deploy
 git add .
@@ -138,7 +109,20 @@ git push origin main
 
 ---
 
+## Troubleshooting
+
+### "No application key"
+Run: `php artisan key:generate`
+
+### Database connection error
+Check DB_* environment variables are correct
+
+### Assets not loading
+Run: `npm run build`
+
+---
+
 ## Notes
-- **Free Tier**: Render's free tier puts services to sleep after 15 minutes of inactivity. First request after sleep may take ~30 seconds.
-- **Database**: Free PostgreSQL instance stays active.
-- **SSL**: Render provides free SSL automatically.
+- **Free Tier**: Services sleep after 15 min of inactivity. First request may take ~30 seconds
+- **SSL**: Provided automatically by Render
+- **Database**: Free PostgreSQL stays active
