@@ -10,22 +10,17 @@ class RolesAndPermissionsSeeder extends Seeder
 {
     public function run(): void
     {
-        // Reset cached roles and permissions
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // Permissions
         $permissions = [
-            // Admin
             'manage users',
             'manage spaces',
             'manage bookings',
             'view analytics',
-            // Owner
             'create space',
             'edit own space',
             'view own bookings',
             'view own earnings',
-            // Driver
             'search spaces',
             'create booking',
             'cancel booking',
@@ -33,23 +28,22 @@ class RolesAndPermissionsSeeder extends Seeder
         ];
 
         foreach ($permissions as $perm) {
-            Permission::create(['name' => $perm]);
+            Permission::firstOrCreate(['name' => $perm]); 
         }
 
-        // Roles
-        $adminRole = Role::create(['name' => 'admin']);
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
         $adminRole->givePermissionTo(Permission::all());
 
-        $ownerRole = Role::create(['name' => 'owner']);
-        $ownerRole->givePermissionTo([
+        $ownerRole = Role::firstOrCreate(['name' => 'owner']);
+        $ownerRole->syncPermissions([
             'create space',
             'edit own space',
             'view own bookings',
             'view own earnings',
         ]);
 
-        $driverRole = Role::create(['name' => 'driver']);
-        $driverRole->givePermissionTo([
+        $driverRole = Role::firstOrCreate(['name' => 'driver']);
+        $driverRole->syncPermissions([
             'search spaces',
             'create booking',
             'cancel booking',
