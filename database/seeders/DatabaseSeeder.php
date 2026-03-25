@@ -12,55 +12,49 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // Create Roles
-        $admin  = Role::create(['name' => 'admin']);
-        $owner  = Role::create(['name' => 'owner']);
-        $driver = Role::create(['name' => 'driver']);
+        // Call roles and permissions seeder first
+        $this->call(RolesAndPermissionsSeeder::class);
 
-        // Create Permissions
-        $permissions = [
-            'manage users', 'manage spaces', 'manage bookings', 'view analytics',
-            'create space', 'edit own space', 'view own bookings', 'view own earnings',
-            'search spaces', 'create booking', 'cancel booking', 'write review',
-        ];
-
-        foreach ($permissions as $perm) {
-            Permission::create(['name' => $perm]);
+        // Create Admin User (only if not exists)
+        $adminUser = User::firstOrCreate(
+            ['email' => 'admin@parkease.com'],
+            [
+                'name'     => 'Admin',
+                'phone'    => '9999999999',
+                'password' => Hash::make('password'),
+                'status'   => 'active',
+            ]
+        );
+        if (!$adminUser->hasRole('admin')) {
+            $adminUser->assignRole('admin');
         }
 
-        // Assign permissions to roles
-        $admin->givePermissionTo(Permission::all());
-        $owner->givePermissionTo(['create space', 'edit own space', 'view own bookings', 'view own earnings']);
-        $driver->givePermissionTo(['search spaces', 'create booking', 'cancel booking', 'write review']);
+        // Create test Owner (only if not exists)
+        $ownerUser = User::firstOrCreate(
+            ['email' => 'owner@parkease.com'],
+            [
+                'name'     => 'Test Owner',
+                'phone'    => '8888888888',
+                'password' => Hash::make('password'),
+                'status'   => 'active',
+            ]
+        );
+        if (!$ownerUser->hasRole('owner')) {
+            $ownerUser->assignRole('owner');
+        }
 
-        // Create Admin User
-        $adminUser = User::create([
-            'name'     => 'Admin',
-            'email'    => 'admin@parkease.com',
-            'phone'    => '9999999999',
-            'password' => Hash::make('password'),
-            'status'   => 'active',
-        ]);
-        $adminUser->assignRole('admin');
-
-        // Create a test Owner
-        $ownerUser = User::create([
-            'name'     => 'Test Owner',
-            'email'    => 'owner@parkease.com',
-            'phone'    => '8888888888',
-            'password' => Hash::make('password'),
-            'status'   => 'active',
-        ]);
-        $ownerUser->assignRole('owner');
-
-        // Create a test Driver
-        $driverUser = User::create([
-            'name'     => 'Test Driver',
-            'email'    => 'driver@parkease.com',
-            'phone'    => '7777777777',
-            'password' => Hash::make('password'),
-            'status'   => 'active',
-        ]);
-        $driverUser->assignRole('driver');
+        // Create test Driver (only if not exists)
+        $driverUser = User::firstOrCreate(
+            ['email' => 'driver@parkease.com'],
+            [
+                'name'     => 'Test Driver',
+                'phone'    => '7777777777',
+                'password' => Hash::make('password'),
+                'status'   => 'active',
+            ]
+        );
+        if (!$driverUser->hasRole('driver')) {
+            $driverUser->assignRole('driver');
+        }
     }
 }
