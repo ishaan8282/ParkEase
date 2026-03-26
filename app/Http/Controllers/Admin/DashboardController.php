@@ -7,6 +7,8 @@ use App\Models\Booking;
 use App\Models\ParkingSpace;
 use App\Models\Payment;
 use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class DashboardController extends Controller
 {
@@ -48,5 +50,50 @@ class DashboardController extends Controller
         ]);
 
         return inertia('Admin/Dashboard', compact('stats', 'recentBookings', 'recentUsers'));
+    }
+
+    public function editProfile()
+    {
+        $user = auth()->user();
+
+        return inertia('Admin/Profile/Edit', [
+            'user' => [
+                'id'    => $user->id,
+                'name'  => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+            ],
+        ]);
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $user = auth()->user();
+
+        $rules = [
+            'name'  => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $user->id],
+            'phone' => ['nullable', 'string', 'max:20'],
+        ];
+
+        // If changing password, require previous password verification
+        if ($request->filled('new_password')) {
+            $rules['current_password'] = ['required', 'string'];
+            $rules['new_password']      = ['required', 'string', 'min:8', 'confirmed'];
+        }
+
+        $validated = $request->validate($rules);
+
+        // Verify current password if trying to change password
+        if ($request->filled('new_password')) {
+            if (!Hash::check($request->current_password, $user->password)) {
+                return back()->withErrors(['current_password' => 'The current password is incorrect.']);
+            }
+            $validated['password'] = $request->new_password;
+        }
+
+        $user->update($validated);
+
+        return back()->with('success', 'Profile updated successfully.');
     }
 }

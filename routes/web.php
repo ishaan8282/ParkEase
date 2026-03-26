@@ -45,7 +45,11 @@ Route::middleware(['auth', 'role:owner'])->prefix('owner')->name('owner.')->grou
 // Admin routes
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/profile/edit', [DashboardController::class, 'editProfile'])->name('profile.edit');
+    Route::patch('/profile/update', [DashboardController::class, 'updateProfile'])->name('profile.update');
     Route::resource('users', UserController::class);
+    Route::patch('/users/{user}/status', [UserController::class, 'updateStatus'])->name('users.update-status');
+    Route::patch('/users/{user}/role', [UserController::class, 'updateRole'])->name('users.update-role');
     Route::resource('spaces', AdminSpaceController::class);
     Route::patch('/spaces/{space}/verify', [AdminSpaceController::class, 'verify'])->name('spaces.verify');
     Route::get('/bookings', [AdminBookingController::class, 'index'])->name('bookings.index');

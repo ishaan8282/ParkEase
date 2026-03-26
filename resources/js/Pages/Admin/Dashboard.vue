@@ -1,6 +1,13 @@
 <template>
     <AdminLayout>
-        <template #header>Dashboard Overview</template>
+        <template #header>
+            <div class="d-flex justify-content-between align-items-center">
+                <span>Dashboard Overview</span>
+                <Link :href="route('admin.profile.edit')" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-person-edit me-1"></i>Edit Profile
+                </Link>
+            </div>
+        </template>
 
         <!-- Stats Cards -->
         <div class="row g-3 mb-4">

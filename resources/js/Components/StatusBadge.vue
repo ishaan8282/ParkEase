@@ -19,7 +19,7 @@ const map = {
     no_show:    { class: 'bg-secondary', label: 'No Show' },
     // Space statuses
     active:     { class: 'bg-success', label: 'Active' },
-    inactive:   { class: 'bg-secondary', label: 'Inactive' },
+    inactive:   { class: 'bg-warning', label: 'Inactive' },
     rejected:   { class: 'bg-danger', label: 'Rejected' },
     // User statuses
     banned:     { class: 'bg-danger', label: 'Banned' },
