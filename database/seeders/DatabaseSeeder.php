@@ -15,6 +15,9 @@ class DatabaseSeeder extends Seeder
         // Call roles and permissions seeder first
         $this->call(RolesAndPermissionsSeeder::class);
 
+        // Seed cancellation settings
+        $this->call(CancellationSettingsSeeder::class);
+
         // Create Admin User (only if not exists)
         $adminUser = User::firstOrCreate(
             ['email' => 'admin@parkease.com'],

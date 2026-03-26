@@ -179,16 +179,48 @@
                 </div>
             </div>
         </main>
+
+        <!-- Payment Modal -->
+        <div v-if="showPaymentModal" class="pe-modal-overlay">
+            <div class="pe-modal">
+                <div class="pe-modal-header">
+                    <h3>Complete Payment</h3>
+                    <button @click="cancelReservation" class="pe-modal-close">×</button>
+                </div>
+                <div class="pe-modal-body">
+                    <div class="pe-reservation-timer">
+                        <span class="pe-timer-label">Time remaining to complete payment:</span>
+                        <span class="pe-timer-value">{{ formatTime(timeRemaining) }}</span>
+                    </div>
+                    <div class="pe-reservation-summary">
+                        <p><strong>Slot:</strong> {{ reservationData?.slot_number }}</p>
+                        <p><strong>Amount:</strong> ₹{{ reservationData?.amount }}</p>
+                    </div>
+                    <div class="pe-payment-info">
+                        <p>Payment integration (Razorpay) would be initialized here.</p>
+                        <p class="pe-payment-note">Click confirm to simulate a successful payment.</p>
+                    </div>
+                    <button @click="confirmPayment" class="pe-btn pe-btn--neon pe-btn--lg" :disabled="paymentProcessing">
+                        {{ paymentProcessing ? 'Processing...' : `Pay ₹${reservationData?.amount}` }}
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
 <script setup>
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { Link, useForm } from '@inertiajs/vue3'
+
+// Get route function from window (available via Ziggy)
+const route = window.route
 
 const props = defineProps({
     space: Object,
     user: Object,
+    flash: Object,
+    reservation: Object,
 })
 
 const booking = reactive({
@@ -238,7 +270,7 @@ const userInitials = computed(() => {
 })
 
 function proceedToCheckout() {
-    // Post directly to the bookings store endpoint
+    // Post to reserve the slot first
     const checkInDateTime = `${booking.date}T${booking.check_in}:00`
     const checkOutDateTime = `${booking.date}T${booking.check_out}:00`
 
@@ -251,16 +283,102 @@ function proceedToCheckout() {
         payment_method: 'upi',
     })
 
-    form.post(route('driver.bookings.store'), {
+    form.post(window.route('driver.bookings.reserve'), {
         onSuccess: () => {
-            // Redirects to My Bookings on success
+            // The server returns a redirect to the space detail page with reservation data
+            // Inertia will handle the redirect automatically
+            // The reservation will be available as a prop when the page loads
         },
         onError: (errors) => {
-            console.error('Booking errors:', errors)
-            alert('Booking failed: ' + Object.values(errors).join(', '))
+            console.error('Reservation errors:', errors)
+            alert('Reservation failed: ' + Object.values(errors).join(', '))
         }
     })
 }
+
+// Payment modal state
+const showPaymentModal = ref(false)
+const reservationData = ref(null)
+const paymentProcessing = ref(false)
+const paymentTimer = ref(null)
+const timeRemaining = ref(0)
+
+function startPaymentTimer(expiresInSec) {
+    timeRemaining.value = expiresInSec
+    paymentTimer.value = setInterval(() => {
+        timeRemaining.value--
+        if (timeRemaining.value <= 0) {
+            clearInterval(paymentTimer.value)
+            showPaymentModal.value = false
+            alert('Reservation expired. Please try again.')
+        }
+    }, 1000)
+}
+
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+async function confirmPayment() {
+    paymentProcessing.value = true
+
+    // In a real implementation, this would create a Razorpay order
+    // For now, we'll simulate the payment and call the confirm endpoint
+    try {
+        // Get CSRF token
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
+        if (!csrfToken) {
+            alert('CSRF token not found. Please refresh the page.')
+            paymentProcessing.value = false
+            return
+        }
+
+        // Call the confirm endpoint (simulating successful payment)
+        const response = await fetch(window.route('driver.bookings.confirm'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken
+            },
+            body: JSON.stringify({
+                razorpay_payment_id: 'pay_' + Date.now(),
+                razorpay_order_id: 'order_' + Date.now(),
+                razorpay_signature: 'signature_placeholder'
+            })
+        })
+
+        if (response.ok) {
+            window.location.href = window.route('driver.bookings.index') + '?success=true'
+        } else {
+            const data = await response.json()
+            alert('Payment confirmation failed: ' + (data.errors?.booking || 'Unknown error'))
+            paymentProcessing.value = false
+        }
+    } catch (error) {
+        console.error('Payment error:', error)
+        alert('Payment failed. Please try again.')
+        paymentProcessing.value = false
+    }
+}
+
+function cancelReservation() {
+    if (paymentTimer.value) {
+        clearInterval(paymentTimer.value)
+    }
+    showPaymentModal.value = false
+    reservationData.value = null
+}
+
+// Check for reservation on mount - if reservation prop exists, show modal
+onMounted(() => {
+    if (props.reservation) {
+        showPaymentModal.value = true
+        reservationData.value = props.reservation
+        startPaymentTimer(props.reservation.expires_in_sec)
+    }
+})
 </script>
 
 <style scoped>
@@ -609,5 +727,121 @@ function proceedToCheckout() {
     .pe-space-stats {
         flex-wrap: wrap;
     }
+}
+
+/* Modal Styles */
+.pe-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+
+.pe-modal {
+    background: #0a0e18;
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    border-radius: 24px;
+    width: 100%;
+    max-width: 420px;
+    padding: 0;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.pe-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.pe-modal-header h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #E8EDF5;
+    margin: 0;
+}
+
+.pe-modal-close {
+    background: none;
+    border: none;
+    color: rgba(232, 237, 245, 0.5);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.pe-modal-close:hover {
+    color: #E8EDF5;
+}
+
+.pe-modal-body {
+    padding: 24px;
+}
+
+.pe-reservation-timer {
+    background: rgba(255, 107, 107, 0.1);
+    border: 1px solid rgba(255, 107, 107, 0.2);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.pe-timer-label {
+    display: block;
+    font-size: 0.85rem;
+    color: rgba(232, 237, 245, 0.6);
+    margin-bottom: 8px;
+}
+
+.pe-timer-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #FF6B6B;
+}
+
+.pe-reservation-summary {
+    background: rgba(0, 212, 255, 0.08);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.pe-reservation-summary p {
+    display: flex;
+    justify-content: space-between;
+    margin: 0 0 8px 0;
+    color: rgba(232, 237, 245, 0.7);
+}
+
+.pe-reservation-summary p:last-child {
+    margin-bottom: 0;
+}
+
+.pe-reservation-summary strong {
+    color: #E8EDF5;
+}
+
+.pe-payment-info {
+    text-align: center;
+    margin-bottom: 20px;
+    color: rgba(232, 237, 245, 0.6);
+}
+
+.pe-payment-note {
+    font-size: 0.85rem;
+    color: rgba(0, 212, 255, 0.7);
+    margin-top: 8px;
 }
 </style>

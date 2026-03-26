@@ -224,8 +224,27 @@ function viewQRCode(booking) {
 
 function cancelBooking(booking) {
     if (confirm('Are you sure you want to cancel this booking?')) {
-        // Would PATCH to backend
-        console.log('Cancelling booking:', booking.id)
+        // Call the backend to cancel the booking
+        fetch(window.route('driver.bookings.cancel', { booking: booking.id }), {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
+            },
+            body: JSON.stringify({ reason: 'User requested cancellation' })
+        })
+        .then(response => {
+            if (response.ok) {
+                // Reload the page to get updated bookings
+                window.location.reload()
+            } else {
+                alert('Failed to cancel booking. Please try again.')
+            }
+        })
+        .catch(error => {
+            console.error('Cancel error:', error)
+            alert('Failed to cancel booking. Please try again.')
+        })
     }
 }
 

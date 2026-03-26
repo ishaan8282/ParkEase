@@ -59,7 +59,7 @@ class SearchController extends Controller
     /**
      * Display parking space details
      */
-    public function show(ParkingSpace $space)
+    public function show(Request $request, ParkingSpace $space)
     {
         $space->load(['slots', 'owner', 'reviews']);
 
@@ -77,9 +77,17 @@ class SearchController extends Controller
         // Get total bookings count
         $space->total_bookings = $space->bookings()->count();
 
+        // Check for reservation data from redirect after booking flow
+        $reservation = null;
+        if ($request->has('reserved')) {
+            $decoded = base64_decode($request->input('reserved'));
+            $reservation = json_decode($decoded, true);
+        }
+
         return Inertia::render('Driver/SpaceDetail', [
             'space' => $space,
             'user' => Auth::user(),
+            'reservation' => $reservation,
         ]);
     }
 }
