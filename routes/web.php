@@ -71,4 +71,5 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::patch('/spaces/{space}/verify', [AdminSpaceController::class, 'verify'])->name('spaces.verify');
 
     Route::get('/bookings', [AdminBookingController::class, 'index'])->name('bookings.index');
+    Route::get('/bookings/{booking}', [AdminBookingController::class, 'show'])->name('bookings.show');
 });
