@@ -5,17 +5,26 @@
         </template>
 
         <form @submit.prevent="submitForm" class="pe-form">
+            <!-- Error Summary -->
+            <div v-if="Object.keys(form.errors).length > 0" class="pe-error-summary">
+                <h4>Please fix the following errors:</h4>
+                <ul>
+                    <li v-for="(error, field) in form.errors" :key="field">{{ error }}</li>
+                </ul>
+            </div>
+
             <!-- Basic Info -->
             <section class="pe-form-section">
                 <h2>Basic Information</h2>
                 <div class="pe-form-grid">
                     <div class="pe-form-group">
                         <label>Space Name *</label>
-                        <input v-model="form.name" type="text" placeholder="e.g., Mall Road Parking" required />
+                        <input v-model="form.name" type="text" placeholder="e.g., Mall Road Parking" required :class="{ 'has-error': form.errors.name }" />
+                        <span v-if="form.errors.name" class="pe-error-text">{{ form.errors.name }}</span>
                     </div>
                     <div class="pe-form-group">
                         <label>City *</label>
-                        <select v-model="form.city" required>
+                        <select v-model="form.city" required :class="{ 'has-error': form.errors.city }">
                             <option value="">Select city</option>
                             <option value="Shimla">Shimla</option>
                             <option value="Manali">Manali</option>
@@ -24,11 +33,13 @@
                             <option value="Dharamshala">Dharamshala</option>
                             <option value="Dalhousie">Dalhousie</option>
                         </select>
+                        <span v-if="form.errors.city" class="pe-error-text">{{ form.errors.city }}</span>
                     </div>
                 </div>
                 <div class="pe-form-group">
                     <label>Address *</label>
-                    <input v-model="form.address" type="text" placeholder="Full address" required />
+                    <input v-model="form.address" type="text" placeholder="Full address" required :class="{ 'has-error': form.errors.address }" />
+                    <span v-if="form.errors.address" class="pe-error-text">{{ form.errors.address }}</span>
                 </div>
                 <div class="pe-form-group">
                     <label>Description</label>
@@ -106,7 +117,8 @@
                 <div class="pe-form-grid">
                     <div class="pe-form-group">
                         <label>Price per Hour (₹) *</label>
-                        <input v-model="form.price_per_hour" type="number" min="0" placeholder="e.g., 50" required />
+                        <input v-model="form.price_per_hour" type="number" min="0" placeholder="e.g., 50" required :class="{ 'has-error': form.errors.price_per_hour }" />
+                        <span v-if="form.errors.price_per_hour" class="pe-error-text">{{ form.errors.price_per_hour }}</span>
                     </div>
                     <div class="pe-form-group">
                         <label>Price per Day (₹)</label>
@@ -217,10 +229,12 @@ function submitForm() {
 
     submitting.value = true
 
-    // Add total_slots to form data
-    form.total_slots = totalSlots.value
+    const formData = { ...form }
 
-    form.patch(route('owner.spaces.update', props.space.id), {
+    form.transform(() => ({
+        ...formData,
+        total_slots: totalSlots.value
+    })).patch(route('owner.spaces.update', props.space.id), {
         onSuccess: () => {
             submitting.value = false
         },
@@ -301,5 +315,37 @@ function submitForm() {
 
 .pe-total-value {
     font-size: 1.25rem;
+}
+
+.pe-error-summary {
+    background: #fee2e2;
+    border: 1px solid #ef4444;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.pe-error-summary h4 {
+    color: #b91c1c;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.pe-error-summary ul {
+    margin: 0;
+    padding-left: 1.25rem;
+    color: #b91c1c;
+    font-size: 0.85rem;
+}
+
+.pe-error-text {
+    color: #ef4444;
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+    display: block;
+}
+
+.has-error {
+    border-color: #ef4444 !important;
 }
 </style>

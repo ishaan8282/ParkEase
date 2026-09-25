@@ -5,8 +5,20 @@
         page-subtitle="Manage and track all your parking space reservations"
         :pending-bookings="stats?.pending || 0"
     >
+        <!-- Success/Error Notification Alert -->
+        <div v-if="successMsg" class="pe-toast pe-toast--success">
+            <span>✅ {{ successMsg }}</span>
+            <button @click="successMsg = ''" class="pe-toast__close">✕</button>
+        </div>
+
         <!-- Stat Pills -->
         <div class="pe-pills">
+            <button
+                class="pe-btn pe-btn--neon"
+                @click="showWalkInModal = true"
+            >
+                + Register Walk-In
+            </button>
             <button class="pe-pill" :class="{ active: !filters.status }" @click="filterBy('')">
                 <span class="pe-pill__num">{{ stats.total }}</span>
                 <span class="pe-pill__label">All Bookings</span>
@@ -26,6 +38,17 @@
             <button class="pe-pill" :class="{ active: filters.status === 'completed' }" @click="filterBy('completed')">
                 <span class="pe-pill__num" style="color:#00D4FF;text-shadow:0 0 12px rgba(0,212,255,.7)">{{ stats.completed }}</span>
                 <span class="pe-pill__label">Completed</span>
+            </button>
+            <button
+                class="pe-pill"
+                :class="{ active: filters.status === 'walk_in' }"
+                @click="filterBy('walk_in')"
+            >
+                <span
+                    class="pe-pill__num"
+                    style="color:#FF9F6B;text-shadow:0 0 12px rgba(255,159,107,.7)"
+                >{{ stats.walk_in ?? 0 }}</span>
+                <span class="pe-pill__label">Walk-In</span>
             </button>
         </div>
 
@@ -62,6 +85,7 @@
                             <th>Check-in</th>
                             <th>Check-out</th>
                             <th>Amount</th>
+                            <th>Payment</th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
@@ -69,14 +93,24 @@
                     <tbody>
                         <tr v-for="booking in bookings.data" :key="booking.id" class="pe-tr">
                             <td>
-                                <span class="pe-ref">{{ booking.booking_ref }}</span>
+                                <div class="pe-ref-wrap">
+                                    <span class="pe-ref">{{ booking.booking_ref }}</span>
+                                    <span v-if="booking.is_walk_in" class="pe-type-badge pe-type-badge--walkin">Walk-In</span>
+                                    <span v-else class="pe-type-badge pe-type-badge--online">Online</span>
+                                </div>
                             </td>
                             <td>
                                 <div class="pe-customer">
-                                    <div class="pe-customer__avatar">{{ booking.user?.name?.charAt(0) }}</div>
+                                    <div class="pe-customer__avatar" :class="{ 'pe-customer__avatar--walkin': booking.is_walk_in }">
+                                        {{ (booking.customer_name || booking.user?.name || 'G').charAt(0).toUpperCase() }}
+                                    </div>
                                     <div>
-                                        <div class="pe-customer__name">{{ booking.user?.name }}</div>
-                                        <div class="pe-customer__phone">{{ booking.user?.phone }}</div>
+                                        <div class="pe-customer__name">
+                                            {{ booking.customer_name || booking.user?.name || 'Guest' }}
+                                        </div>
+                                        <div class="pe-customer__phone">
+                                            {{ booking.customer_phone || booking.user?.phone || '-' }}
+                                        </div>
                                     </div>
                                 </div>
                             </td>
@@ -96,18 +130,53 @@
                                 <span class="pe-amount">₹{{ booking.total_amount }}</span>
                             </td>
                             <td>
+                                <span
+                                    v-if="booking.payment_status"
+                                    class="pe-pay-badge"
+                                    :class="'pe-pay-badge--' + booking.payment_status"
+                                >
+                                    {{ booking.payment_status }}
+                                </span>
+                                <span v-else class="pe-td-muted">-</span>
+                            </td>
+                            <td>
                                 <span class="pe-status-badge" :class="'pe-status--' + booking.status">
                                     {{ booking.status.replace('_', ' ') }}
                                 </span>
                             </td>
                             <td>
                                 <div class="pe-actions">
-                                    <button v-if="booking.status === 'pending'"
-                                            @click="confirmBooking(booking.id)"
-                                            class="pe-act pe-act--confirm" title="Confirm">✓</button>
-                                    <button v-if="!['cancelled','completed'].includes(booking.status)"
-                                            @click="cancelBooking(booking.id)"
-                                            class="pe-act pe-act--cancel" title="Cancel">✕</button>
+                                    <!-- Confirm pending -->
+                                    <button
+                                        v-if="booking.status === 'pending'"
+                                        @click="confirmBooking(booking.id)"
+                                        class="pe-act pe-act--confirm"
+                                        title="Confirm Booking"
+                                    >✓</button>
+
+                                    <!-- Check out active / walk-in -->
+                                    <button
+                                        v-if="booking.status === 'checked_in'"
+                                        @click="checkOutBooking(booking.id, booking.booking_ref)"
+                                        class="pe-act pe-act--checkout"
+                                        title="Check-Out / Release Slot"
+                                    >🏁</button>
+
+                                    <!-- Download Slip PDF -->
+                                    <a
+                                        :href="route('owner.bookings.payslip', booking.id)"
+                                        target="_blank"
+                                        class="pe-act pe-act--slip"
+                                        title="Download Parking Slip"
+                                    >📄</a>
+
+                                    <!-- Cancel booking -->
+                                    <button
+                                        v-if="!['cancelled', 'completed'].includes(booking.status)"
+                                        @click="cancelBooking(booking.id)"
+                                        class="pe-act pe-act--cancel"
+                                        title="Cancel Booking"
+                                    >✕</button>
                                 </div>
                             </td>
                         </tr>
@@ -124,26 +193,36 @@
 
         <!-- Pagination -->
         <OwnerPagination :links="bookings.links" />
+
+        <!-- Walk-In Modal -->
+        <WalkInModal
+            :show="showWalkInModal"
+            :available-slots="availableSlots"
+            @close="showWalkInModal = false"
+            @created="onWalkInCreated"
+        />
     </OwnerLayout>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import { usePage } from '@inertiajs/vue3'
+import { router, usePage } from '@inertiajs/vue3'
 import OwnerLayout from '@/Components/Owner/OwnerLayout.vue'
 import OwnerPagination from '@/Components/Owner/OwnerPagination.vue'
+import WalkInModal from '@/Components/WalkInModal.vue'
 
 const page = usePage()
-const flash = computed(() => page.props.flash)
-
 const props = defineProps({
-    bookings: Object,
-    stats:    Object,
-    filters:  Object,
+    bookings:       Object,
+    stats:          Object,
+    filters:        Object,
+    availableSlots: Array,
 })
 
-const dateFrom    = ref(props.filters?.from_date || '')
-const dateTo      = ref(props.filters?.to_date || '')
+const showWalkInModal = ref(false)
+const successMsg      = ref('')
+const dateFrom        = ref(props.filters?.from_date || '')
+const dateTo          = ref(props.filters?.to_date || '')
 
 const hasFilters = computed(() => props.filters?.status || dateFrom.value || dateTo.value)
 
@@ -152,28 +231,59 @@ function filterBy(status) {
     if (status) params.set('status', status)
     if (dateFrom.value) params.set('from_date', dateFrom.value)
     if (dateTo.value)   params.set('to_date', dateTo.value)
-    window.location.href = route('owner.bookings.index') + '?' + params.toString()
+    router.get(route('owner.bookings.index'), Object.fromEntries(params), {
+        preserveState: true,
+        replace: true,
+    })
 }
 
 function applyFilters() { filterBy(props.filters?.status || '') }
-function clearFilters()  { window.location.href = route('owner.bookings.index') }
+function clearFilters()  { router.get(route('owner.bookings.index')) }
 
 function formatDate(d) {
     if (!d) return '-'
-    return new Date(d).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })
+    return new Date(d).toLocaleString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit'
+    })
 }
 
 function confirmBooking(id) {
     if (confirm('Confirm this booking?')) {
-        console.log('confirm', id)
+        router.patch(route('owner.bookings.confirm', id), {}, {
+            onSuccess: () => {
+                successMsg.value = 'Booking confirmed successfully.'
+            },
+        })
     }
 }
 
 function cancelBooking(id) {
     const reason = prompt('Reason for cancellation:')
     if (reason !== null) {
-        console.log('cancel', id, reason)
+        router.patch(route('owner.bookings.cancel', id), { reason }, {
+            onSuccess: () => {
+                successMsg.value = 'Booking cancelled successfully.'
+            },
+        })
     }
+}
+
+function checkOutBooking(id, refNo) {
+    if (confirm(`Check-out vehicle for booking ${refNo}? This will mark it completed and release the parking slot.`)) {
+        router.post(route('owner.bookings.check-out', id), {}, {
+            onSuccess: () => {
+                successMsg.value = `Booking ${refNo} checked out and slot released!`
+            },
+        })
+    }
+}
+
+function onWalkInCreated(data) {
+    successMsg.value = data?.message || 'Walk-in customer registered and checked in successfully!'
+    router.reload({ only: ['bookings', 'stats', 'availableSlots'] })
 }
 </script>
 
@@ -233,13 +343,26 @@ function cancelBooking(id) {
 .pe-table td { padding: 14px 16px; font-size: .88rem; }
 
 /* Customer */
+.pe-ref-wrap { display: flex; flex-direction: column; gap: 4px; }
 .pe-ref { font-family: monospace; font-size: .82rem; font-weight: 700; color: #00D4FF; text-shadow: 0 0 8px rgba(0,212,255,.4); }
+.pe-type-badge { display: inline-block; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 1px 6px; border-radius: 4px; width: fit-content; }
+.pe-type-badge--walkin { background: rgba(255,159,107,0.15); color: #FF9F6B; border: 1px solid rgba(255,159,107,0.3); }
+.pe-type-badge--online { background: rgba(0,212,255,0.1); color: #00D4FF; border: 1px solid rgba(0,212,255,0.2); }
+
 .pe-customer { display: flex; align-items: center; gap: 10px; }
 .pe-customer__avatar { width: 32px; height: 32px; border-radius: 8px; background: rgba(0,212,255,.1); border: 1px solid rgba(0,212,255,.2); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .85rem; color: #00D4FF; flex-shrink: 0; }
+.pe-customer__avatar--walkin { background: rgba(255,159,107,.12); border-color: rgba(255,159,107,.3); color: #FF9F6B; }
 .pe-customer__name { font-weight: 500; font-size: .88rem; }
 .pe-customer__phone { font-size: .75rem; color: rgba(232,237,245,.4); margin-top: 1px; }
 .pe-td-muted { color: rgba(232,237,245,.55); }
 .pe-td-date { font-size: .8rem !important; }
+
+/* Payment badge */
+.pe-pay-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.pe-pay-badge--paid   { background: rgba(0,229,160,0.12); color: #00E5A0; border: 1px solid rgba(0,229,160,0.3); }
+.pe-pay-badge--cash   { background: rgba(255,217,61,0.12); color: #FFD93D; border: 1px solid rgba(255,217,61,0.3); }
+.pe-pay-badge--pending{ background: rgba(255,107,107,0.12); color: #FF6B6B; border: 1px solid rgba(255,107,107,0.3); }
+.pe-pay-badge--waived { background: rgba(232,237,245,0.08); color: rgba(232,237,245,0.6); border: 1px solid rgba(255,255,255,0.1); }
 
 /* Slot badge */
 .pe-slot-badge { display: inline-flex; align-items: center; justify-content: center; padding: 3px 10px; border-radius: 6px; background: rgba(181,123,255,.1); border: 1px solid rgba(181,123,255,.2); color: #B57BFF; font-size: .75rem; font-weight: 600; }
@@ -258,11 +381,20 @@ function cancelBooking(id) {
 
 /* Actions */
 .pe-actions { display: flex; gap: 6px; }
-.pe-act { width: 30px; height: 30px; border-radius: 8px; border: none; cursor: pointer; font-size: .85rem; font-weight: 700; transition: all .2s; display: flex; align-items: center; justify-content: center; }
+.pe-act { width: 30px; height: 30px; border-radius: 8px; border: none; cursor: pointer; font-size: .85rem; font-weight: 700; transition: all .2s; display: flex; align-items: center; justify-content: center; text-decoration: none; }
 .pe-act--confirm { background: rgba(0,229,160,.12); color: #00E5A0; border: 1px solid rgba(0,229,160,.2); }
 .pe-act--confirm:hover { background: #00E5A0; color: #060910; box-shadow: 0 0 16px rgba(0,229,160,.4); }
+.pe-act--checkout { background: rgba(181,123,255,.12); color: #B57BFF; border: 1px solid rgba(181,123,255,.25); }
+.pe-act--checkout:hover { background: #B57BFF; color: #060910; box-shadow: 0 0 16px rgba(181,123,255,.4); }
+.pe-act--slip { background: rgba(0,212,255,.12); color: #00D4FF; border: 1px solid rgba(0,212,255,.25); }
+.pe-act--slip:hover { background: #00D4FF; color: #060910; box-shadow: 0 0 16px rgba(0,212,255,.4); }
 .pe-act--cancel  { background: rgba(255,107,107,.12); color: #FF6B6B; border: 1px solid rgba(255,107,107,.2); }
 .pe-act--cancel:hover  { background: #FF6B6B; color: #060910; box-shadow: 0 0 16px rgba(255,107,107,.4); }
+
+/* Toast */
+.pe-toast { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-radius: 12px; margin-bottom: 20px; font-size: 0.9rem; font-weight: 500; }
+.pe-toast--success { background: rgba(0,229,160,0.12); border: 1px solid rgba(0,229,160,0.3); color: #00E5A0; box-shadow: 0 0 20px rgba(0,229,160,0.1); }
+.pe-toast__close { background: none; border: none; color: inherit; font-size: 1rem; cursor: pointer; margin-left: 12px; }
 
 /* Empty */
 .pe-empty { text-align: center; padding: 72px 24px; }

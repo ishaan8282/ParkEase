@@ -54,7 +54,11 @@ Route::middleware(['auth', 'role:owner'])->prefix('owner')->name('owner.')->grou
     Route::get('/dashboard', [OwnerDashboardController::class, 'index'])->name('dashboard');
     Route::resource('spaces', ParkingSpaceController::class);
     Route::get('/bookings', [OwnerBookingController::class, 'index'])->name('bookings.index');
+    Route::post('/bookings/walk-in', [OwnerBookingController::class, 'storeWalkIn'])->name('bookings.walk-in');
     Route::patch('/bookings/{booking}/confirm', [OwnerBookingController::class, 'confirm'])->name('bookings.confirm');
+    Route::patch('/bookings/{booking}/cancel', [OwnerBookingController::class, 'cancel'])->name('bookings.cancel');
+    Route::post('/bookings/{booking}/check-out', [OwnerBookingController::class, 'checkOut'])->name('bookings.check-out');
+    Route::get('/bookings/{booking}/payslip', [OwnerBookingController::class, 'downloadPayslip'])->name('bookings.payslip');
 });
 
 // ── Admin ─────────────────────────────────────────────────────────────────────

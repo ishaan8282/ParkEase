@@ -35,6 +35,14 @@ class Booking extends Model
         'cancellation_reason',
         'cancelled_by',
         'cancelled_at',
+        'is_walk_in',
+        'customer_name',
+        'customer_phone',
+        'customer_email',
+        'payment_status',
+        'paid_at',
+        'payslip_path',
+        'notes',
     ];
 
     protected $casts = [
@@ -44,6 +52,8 @@ class Booking extends Model
         'actual_check_out' => 'datetime',
         'refunded_at'      => 'datetime',
         'cancelled_at'     => 'datetime',
+        'paid_at'          => 'datetime',
+        'is_walk_in'       => 'boolean',
         'amount'           => 'decimal:2',
         'platform_fee'     => 'decimal:2',
         'total_amount'     => 'decimal:2',
@@ -59,6 +69,12 @@ class Booking extends Model
     const STATUS_COMPLETED  = 'completed';
     const STATUS_CANCELLED  = 'cancelled';
     const STATUS_NO_SHOW    = 'no_show';
+
+    // ── Payment status constants (walk-in bookings) ────────────────────────────
+    const PAYMENT_PENDING = 'pending';
+    const PAYMENT_PAID    = 'paid';
+    const PAYMENT_CASH    = 'cash';
+    const PAYMENT_WAIVED  = 'waived';
 
     // ── Relationships ──────────────────────────────────────────────────────────
 
@@ -112,6 +128,39 @@ class Booking extends Model
     public function isCheckedIn(): bool
     {
         return $this->status === self::STATUS_CHECKED_IN;
+    }
+
+    /**
+     * Is this a walk-in (owner-registered) booking?
+     */
+    public function isWalkIn(): bool
+    {
+        return (bool) $this->is_walk_in;
+    }
+
+    /**
+     * Display name for the customer.
+     * Walk-in customers have a stored name; online bookings use the User model.
+     */
+    public function customerName(): string
+    {
+        if ($this->is_walk_in && $this->customer_name) {
+            return $this->customer_name;
+        }
+
+        return $this->user?->name ?? 'Guest';
+    }
+
+    /**
+     * Display phone for the customer.
+     */
+    public function customerPhone(): ?string
+    {
+        if ($this->is_walk_in && $this->customer_phone) {
+            return $this->customer_phone;
+        }
+
+        return $this->user?->phone;
     }
 
     /**

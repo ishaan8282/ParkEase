@@ -40,7 +40,25 @@ class SearchController extends Controller
             }
         }
 
-        $spaces = $query->latest()->paginate(12);
+        // Apply sorting
+        $sort = $request->sort ?? 'recent';
+        switch ($sort) {
+            case 'price_asc':
+                $query->orderBy('price_per_hour', 'asc');
+                break;
+            case 'price_desc':
+                $query->orderBy('price_per_hour', 'desc');
+                break;
+            case 'slots_desc':
+                $query->withCount('slots')->orderBy('slots_count', 'desc');
+                break;
+            case 'recent':
+            default:
+                $query->latest();
+                break;
+        }
+
+        $spaces = $query->paginate(12);
 
         $cities = ParkingSpace::where('status', 'active')
             ->where('is_verified', true)
@@ -52,7 +70,7 @@ class SearchController extends Controller
         return Inertia::render('Driver/Search', [
             'spaces' => $spaces,
             'cities' => $cities,
-            'filters' => $request->only(['city', 'location', 'max_price', 'amenities']),
+            'filters' => $request->only(['city', 'location', 'max_price', 'amenities', 'sort']),
         ]);
     }
 
