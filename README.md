@@ -7,6 +7,10 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## ParkEase deployment
+
+The project includes a free hobby/demo deployment setup for Render (Laravel + bundled Vue/Inertia assets) and TiDB Cloud Starter (MySQL-compatible SQL). Follow the [deployment guide](DEPLOYMENT.md) before deploying; free hosting has cold-start and ephemeral-storage limitations.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
