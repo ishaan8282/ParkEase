@@ -27,11 +27,13 @@ RUN npm run build
 FROM php:8.3-apache
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
         libfreetype6-dev libjpeg62-turbo-dev libpng-dev libzip-dev libicu-dev libonig-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j"$(nproc)" bcmath exif gd intl mbstring opcache pdo_mysql zip \
     && a2enmod rewrite headers \
     && sed -i 's/^Listen 80$/Listen 10000/' /etc/apache2/ports.conf \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /var/www/html
